@@ -2,20 +2,29 @@ class Config:
     #################################################################################################################
     # Model-specific parameters
     #################################################################################################################
-    model_family: str = "openvla"                    # Model family
-    pretrained_checkpoint: str = "/mnt/workspace/openvla-7b-finetuned-libero-spatial"     # Pretrained checkpoint path
-    load_in_8bit: bool = True                       # (For OpenVLA only) Load with 8-bit quantization
-    load_in_4bit: bool = False                       # (For OpenVLA only) Load with 4-bit quantization
+    model_family: str = "openvla"
 
-    center_crop: bool = True                         # Center crop? (if trained w/ random crop image aug)
+    # 模型路径
+    pretrained_checkpoint: str = "/mnt/workspace/openvla-7b-finetuned-libero-spatial"
+    # pretrained_checkpoint: str = "/mnt/workspace/openvla-7b"
+
+    # lora 权重路径
+    lora_checkpoint: str | None = None
+
+    # 使用量化
+    load_in_8bit: bool = True
+    load_in_4bit: bool = False
 
     #################################################################################################################
     # LIBERO environment-specific parameters
     #################################################################################################################
-    task_suite_name: str = "libero_spatial"          # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
+    # LIBERO 场景，可选: libero_spatial, libero_object, libero_goal, libero_10, libero_90
+    task_suite_name: str = "libero_spatial"
     
     # 每个任务重复执行的次数
-    num_trials_per_task: int = 2                    # Number of rollouts per task
+    num_trials_per_task: int = 2
+
+    # 每个任务的最大时间步（超过则截断）
     max_steps: int = 220
 
     #################################################################################################################

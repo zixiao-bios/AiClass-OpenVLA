@@ -15,19 +15,19 @@ config = Config()
 DEVICE = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
 
-def eval_libero(cfg: Config) -> None:
-    assert cfg.pretrained_checkpoint is not None, "cfg.pretrained_checkpoint must not be None!"
-    assert not (cfg.load_in_8bit and cfg.load_in_4bit), "Cannot use both 8-bit and 4-bit quantization!"
+def eval_libero():
+    assert config.pretrained_checkpoint is not None, "config.pretrained_checkpoint must not be None!"
+    assert not (config.load_in_8bit and config.load_in_4bit), "Cannot use both 8-bit and 4-bit quantization!"
 
     # 加载模型
     model = AutoModelForVision2Seq.from_pretrained(
-        cfg.pretrained_checkpoint,
+        config.pretrained_checkpoint,
         # 使用Flash Attention 2作为Attention层实现，详见：https://blog.csdn.net/Taobaojishu/article/details/133366239
         attn_implementation="flash_attention_2",
         torch_dtype=torch.bfloat16,
         # 使用8-bit或4-bit量化
-        load_in_8bit=cfg.load_in_8bit,
-        load_in_4bit=cfg.load_in_4bit,
+        load_in_8bit=config.load_in_8bit,
+        load_in_4bit=config.load_in_4bit,
         # 减少内存使用
         low_cpu_mem_usage=True,
         # 允许下载使用远程代码（从huggingface下载的脚本等）
@@ -35,31 +35,31 @@ def eval_libero(cfg: Config) -> None:
     )
 
     # 不使用量化时，手动将模型加载到GPU上
-    if not cfg.load_in_8bit and not cfg.load_in_4bit:
+    if not config.load_in_8bit and not config.load_in_4bit:
         model = model.to(DEVICE)
     
     # 设置配置的unnorm_key等于模型的norm_stats，用于数据的归一化
-    cfg.unnorm_key = cfg.task_suite_name
-    assert cfg.unnorm_key in model.norm_stats, f"Action un-norm key {cfg.unnorm_key} not found in VLA `norm_stats`!"
+    config.unnorm_key = config.task_suite_name
+    assert config.unnorm_key in model.norm_stats, f"Action un-norm key {config.unnorm_key} not found in VLA `norm_stats`!"
     
     # 加载模型的 processor
-    processor = AutoProcessor.from_pretrained(cfg.pretrained_checkpoint, trust_remote_code=True)
+    processor = AutoProcessor.from_pretrained(config.pretrained_checkpoint, trust_remote_code=True)
 
     # 初始化日志文件
-    run_id = f"EVAL-{cfg.task_suite_name}-{cfg.model_family}-{utils.DATE_TIME}"
-    os.makedirs(cfg.local_log_dir, exist_ok=True)
-    local_log_filepath = os.path.join(cfg.local_log_dir, run_id + ".txt")
+    run_id = f"EVAL-{config.task_suite_name}-{config.model_family}-{utils.DATE_TIME}"
+    os.makedirs(config.local_log_dir, exist_ok=True)
+    local_log_filepath = os.path.join(config.local_log_dir, run_id + ".txt")
     log_file = open(local_log_filepath, "w")
     print(f"Logging to local log file: {local_log_filepath}")
 
     # 初始化LIBERO任务
     benchmark_dict = benchmark.get_benchmark_dict()
     # 获取指定的任务场景
-    task_suite = benchmark_dict[cfg.task_suite_name]()
+    task_suite = benchmark_dict[config.task_suite_name]()
     # 指定场景中的任务数量
     num_tasks_in_suite = task_suite.n_tasks
-    print(f"Task suite: {cfg.task_suite_name}, task_num: {num_tasks_in_suite}")
-    log_file.write(f"Task suite: {cfg.task_suite_name}, task_num: {num_tasks_in_suite}\n")
+    print(f"Task suite: {config.task_suite_name}, task_num: {num_tasks_in_suite}")
+    log_file.write(f"Task suite: {config.task_suite_name}, task_num: {num_tasks_in_suite}\n")
 
     # 开始测试
     total_episodes, total_successes = 0, 0
@@ -72,11 +72,11 @@ def eval_libero(cfg: Config) -> None:
         # 任务每次执行时，物品位置会有轻微差异，因此 initial_states 是个数组，表示每次初试状态的轻微差异
 
         # 初始化LIBERO仿真环境，并获得任务描述
-        env, task_description = utils.get_libero_env(task, cfg.model_family, resolution=768)
+        env, task_description = utils.get_libero_env(task, config.model_family, resolution=768)
 
         # 将上述任务执行 num_trials_per_task 次
         task_episodes, task_successes = 0, 0
-        for episode_idx in tqdm.tqdm(range(cfg.num_trials_per_task)):
+        for episode_idx in tqdm.tqdm(range(config.num_trials_per_task)):
             print(f"\nTask: {task_description}")
             log_file.write(f"\nTask: {task_description}\n")
 
@@ -92,7 +92,7 @@ def eval_libero(cfg: Config) -> None:
 
             print(f"Starting episode {task_episodes+1}...")
             log_file.write(f"Starting episode {task_episodes+1}...\n")
-            while t < config.max_steps + cfg.num_steps_wait:
+            while t < config.max_steps:
                 try:
                     # 前 10 个时间步不进行操作，因为物体可能正在掉落
                     if t < 10:
@@ -122,7 +122,7 @@ def eval_libero(cfg: Config) -> None:
 
                     # ==================== 3. 推理并执行动作 ====================
                     # 模型推理，得到下一步的动作
-                    action = model.predict_action(**inputs, unnorm_key=cfg.unnorm_key, do_sample=False)
+                    action = model.predict_action(**inputs, unnorm_key=config.unnorm_key, do_sample=False)
 
                     # 处理输出的 action，使其符合 LIBERO 的定义（LIBERO 中夹爪的控制量：-1 = open, +1 = close）
                     # 将夹爪的控制量，从 [0, 1] 范围转换到 [-1, +1]
@@ -175,4 +175,4 @@ def eval_libero(cfg: Config) -> None:
 
 
 if __name__ == "__main__":
-    eval_libero(config)
+    eval_libero()
