@@ -1,5 +1,6 @@
 import os
 from transformers import AutoModelForVision2Seq, AutoProcessor
+from peft import PeftModel
 from PIL import Image
 import torch
 import numpy as np
@@ -33,6 +34,11 @@ def eval_libero():
         # 允许下载使用远程代码（从huggingface下载的脚本等）
         trust_remote_code=True,
     )
+
+    # 加载 lora 权重
+    if config.lora_checkpoint:
+        model = PeftModel.from_pretrained(model, config.lora_checkpoint)
+        print(f"Loaded lora weights from {config.lora_checkpoint}")
 
     # 不使用量化时，手动将模型加载到GPU上
     if not config.load_in_8bit and not config.load_in_4bit:
